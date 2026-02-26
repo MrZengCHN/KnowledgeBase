@@ -14,6 +14,25 @@ import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
 
+const MARKDOWN_EXTENSIONS = ['.md', '.markdown']
+const ASSET_EXTENSIONS = [
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.webp',
+  '.avif',
+  '.pdf',
+  '.zip',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx'
+]
+
 const markdownSources = import.meta.glob('@knowledge/**/*.{md,markdown}', {
   eager: true,
   query: '?raw',
@@ -96,6 +115,23 @@ md.renderer.rules.fence = renderFence
 
 function normalizePath(input) {
   return input.replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+function getFileExtension(path) {
+  const normalizedPath = normalizePath(path)
+  const dotIndex = normalizedPath.lastIndexOf('.')
+  if (dotIndex < 0) {
+    return ''
+  }
+  return normalizedPath.slice(dotIndex).toLowerCase()
+}
+
+function isMarkdownPath(path) {
+  return MARKDOWN_EXTENSIONS.includes(getFileExtension(path))
+}
+
+function isSupportedAssetPath(path) {
+  return ASSET_EXTENSIONS.includes(getFileExtension(path))
 }
 
 function extractKnowledgeRelativePath(globKey) {
@@ -360,13 +396,13 @@ function extractTocAndInjectHeadingIds(tokens) {
   return toc
 }
 
-export function loadKnowledgeData() {
+function createKnowledgeData(markdownEntries, assetEntries) {
   const moduleMap = new Map()
   const fileIndex = new Map()
   const assetIndex = new Map()
 
-  for (const [key, content] of Object.entries(markdownSources)) {
-    const relativePath = normalizePath(extractKnowledgeRelativePath(key))
+  for (const entry of markdownEntries) {
+    const relativePath = normalizePath(entry.relativePath)
     if (!relativePath) {
       continue
     }
@@ -385,7 +421,7 @@ export function loadKnowledgeData() {
       relativePath,
       pathInModule,
       depth,
-      contentRaw: String(content ?? '')
+      contentRaw: String(entry.contentRaw ?? '')
     }
 
     if (!moduleMap.has(moduleId)) {
@@ -400,12 +436,12 @@ export function loadKnowledgeData() {
     fileIndex.set(file.id, file)
   }
 
-  for (const [key, assetUrl] of Object.entries(assetSources)) {
-    const relativePath = normalizePath(extractKnowledgeRelativePath(key))
+  for (const entry of assetEntries) {
+    const relativePath = normalizePath(entry.relativePath)
     if (!relativePath) {
       continue
     }
-    assetIndex.set(relativePath, String(assetUrl))
+    assetIndex.set(relativePath, String(entry.assetUrl ?? ''))
   }
 
   const modules = Array.from(moduleMap.values())
@@ -423,6 +459,189 @@ export function loadKnowledgeData() {
     modules,
     fileIndex,
     assetIndex
+  }
+}
+
+function createBundledKnowledgeEntries() {
+  const markdownEntries = []
+  const assetEntries = []
+
+  for (const [key, content] of Object.entries(markdownSources)) {
+    const relativePath = normalizePath(extractKnowledgeRelativePath(key))
+    if (!relativePath || !isMarkdownPath(relativePath)) {
+      continue
+    }
+    markdownEntries.push({
+      relativePath,
+      contentRaw: String(content ?? '')
+    })
+  }
+
+  for (const [key, assetUrl] of Object.entries(assetSources)) {
+    const relativePath = normalizePath(extractKnowledgeRelativePath(key))
+    if (!relativePath || !isSupportedAssetPath(relativePath)) {
+      continue
+    }
+    assetEntries.push({
+      relativePath,
+      assetUrl: String(assetUrl ?? '')
+    })
+  }
+
+  return {
+    markdownEntries,
+    assetEntries
+  }
+}
+
+function createGithubPagesContext() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const host = String(window.location.hostname || '').toLowerCase()
+  if (!host.endsWith('.github.io')) {
+    return null
+  }
+
+  const owner = host.slice(0, -'.github.io'.length)
+  if (!owner) {
+    return null
+  }
+
+  const basePath = normalizePath(String(import.meta.env.BASE_URL || '/'))
+  const baseSegments = basePath.split('/').filter(Boolean)
+  const repo = baseSegments[0]
+  if (!repo) {
+    return null
+  }
+
+  return {
+    owner,
+    repo
+  }
+}
+
+function encodePathSegments(path) {
+  return normalizePath(path)
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')
+}
+
+async function fetchJsonNoStore(url, init = {}) {
+  const response = await fetch(url, {
+    ...init,
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      ...(init.headers || {})
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+async function fetchTextNoStore(url) {
+  const response = await fetch(url, { cache: 'no-store' })
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`)
+  }
+  return response.text()
+}
+
+async function fetchGithubKnowledgeEntries(context) {
+  const repoInfo = await fetchJsonNoStore(`https://api.github.com/repos/${context.owner}/${context.repo}`)
+  const branchName = String(repoInfo.default_branch || 'main')
+  const encodedBranchName = encodeURIComponent(branchName)
+
+  const treeInfo = await fetchJsonNoStore(
+    `https://api.github.com/repos/${context.owner}/${context.repo}/git/trees/${encodedBranchName}?recursive=1`
+  )
+
+  const tree = Array.isArray(treeInfo.tree) ? treeInfo.tree : []
+  const markdownPaths = []
+  const assetPaths = []
+
+  for (const item of tree) {
+    if (item?.type !== 'blob') {
+      continue
+    }
+
+    const repoPath = normalizePath(String(item.path || ''))
+    if (!repoPath || !repoPath.toLowerCase().startsWith('knowledge/')) {
+      continue
+    }
+
+    const relativePath = normalizePath(repoPath.slice('knowledge/'.length))
+    if (!relativePath) {
+      continue
+    }
+
+    if (isMarkdownPath(relativePath)) {
+      markdownPaths.push(relativePath)
+      continue
+    }
+
+    if (isSupportedAssetPath(relativePath)) {
+      assetPaths.push(relativePath)
+    }
+  }
+
+  const cacheKey = Date.now()
+  const markdownEntries = await Promise.all(
+    markdownPaths.map(async (relativePath) => {
+      const rawPath = encodePathSegments(`knowledge/${relativePath}`)
+      const rawUrl =
+        `https://raw.githubusercontent.com/${context.owner}/${context.repo}/${encodedBranchName}/${rawPath}` +
+        `?v=${cacheKey}`
+      const contentRaw = await fetchTextNoStore(rawUrl)
+      return {
+        relativePath,
+        contentRaw
+      }
+    })
+  )
+
+  const assetEntries = assetPaths.map((relativePath) => {
+    const rawPath = encodePathSegments(`knowledge/${relativePath}`)
+    const assetUrl =
+      `https://raw.githubusercontent.com/${context.owner}/${context.repo}/${encodedBranchName}/${rawPath}` +
+      `?v=${cacheKey}`
+    return {
+      relativePath,
+      assetUrl
+    }
+  })
+
+  return {
+    markdownEntries,
+    assetEntries
+  }
+}
+
+export function loadKnowledgeData() {
+  const { markdownEntries, assetEntries } = createBundledKnowledgeEntries()
+  return createKnowledgeData(markdownEntries, assetEntries)
+}
+
+export async function loadKnowledgeDataFresh() {
+  const githubPagesContext = createGithubPagesContext()
+  if (!githubPagesContext) {
+    return loadKnowledgeData()
+  }
+
+  try {
+    const { markdownEntries, assetEntries } = await fetchGithubKnowledgeEntries(githubPagesContext)
+    return createKnowledgeData(markdownEntries, assetEntries)
+  } catch (error) {
+    console.warn('[knowledgeLoader] 拉取 GitHub 最新知识库失败，已回退至构建快照。', error)
+    return loadKnowledgeData()
   }
 }
 

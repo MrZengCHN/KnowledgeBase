@@ -1,13 +1,16 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { loadKnowledgeData, renderKnowledgeFile } from '@/services/knowledgeLoader'
+import { loadKnowledgeData, loadKnowledgeDataFresh, renderKnowledgeFile } from '@/services/knowledgeLoader'
 
 const route = useRoute()
 const router = useRouter()
 
-const { modules, fileIndex, assetIndex } = loadKnowledgeData()
-const moduleIndex = new Map(modules.map((module) => [module.id, module]))
+const initialKnowledgeData = loadKnowledgeData()
+const modules = ref(initialKnowledgeData.modules)
+const fileIndex = ref(initialKnowledgeData.fileIndex)
+const assetIndex = ref(initialKnowledgeData.assetIndex)
+const moduleIndex = computed(() => new Map(modules.value.map((module) => [module.id, module])))
 
 const selectedModuleId = ref('')
 const selectedFileId = ref('')
@@ -16,17 +19,34 @@ const tocItems = ref([])
 const activeHeadingId = ref('')
 const notice = ref('')
 const readingProgress = ref(0)
+const isRefreshingKnowledge = ref(true)
 
 const contentScrollRef = ref(null)
 const copyResetTimers = new Map()
 
-const hasModules = computed(() => modules.length > 0)
-const selectedModule = computed(() => moduleIndex.get(selectedModuleId.value) ?? null)
-const selectedFile = computed(() => fileIndex.get(selectedFileId.value) ?? null)
+const hasModules = computed(() => modules.value.length > 0)
+const selectedModule = computed(() => moduleIndex.value.get(selectedModuleId.value) ?? null)
+const selectedFile = computed(() => fileIndex.value.get(selectedFileId.value) ?? null)
 const isModuleOverview = computed(() => !selectedModuleId.value)
 
-const defaultModule = computed(() => modules.find((module) => module.files.length > 0) ?? modules[0] ?? null)
+const defaultModule = computed(() => modules.value.find((module) => module.files.length > 0) ?? modules.value[0] ?? null)
 const defaultFile = computed(() => defaultModule.value?.files[0] ?? null)
+
+function applyKnowledgeData(nextData) {
+  modules.value = nextData.modules
+  fileIndex.value = nextData.fileIndex
+  assetIndex.value = nextData.assetIndex
+}
+
+async function refreshKnowledgeData() {
+  isRefreshingKnowledge.value = true
+  try {
+    const latestData = await loadKnowledgeDataFresh()
+    applyKnowledgeData(latestData)
+  } finally {
+    isRefreshingKnowledge.value = false
+  }
+}
 
 function pickQueryValue(value) {
   if (Array.isArray(value)) {
@@ -64,6 +84,10 @@ function navigateToQuery(query, mode = 'push') {
 }
 
 function applyRouteState() {
+  if (isRefreshingKnowledge.value) {
+    return
+  }
+
   const moduleQuery = pickQueryValue(route.query.module)
   const fileQuery = pickQueryValue(route.query.file)
 
@@ -84,8 +108,8 @@ function applyRouteState() {
     return
   }
 
-  if (fileQuery && fileIndex.has(fileQuery)) {
-    const file = fileIndex.get(fileQuery)
+  if (fileQuery && fileIndex.value.has(fileQuery)) {
+    const file = fileIndex.value.get(fileQuery)
     selectedModuleId.value = file.moduleId
     selectedFileId.value = file.id
     notice.value = ''
@@ -93,8 +117,8 @@ function applyRouteState() {
     return
   }
 
-  if (moduleQuery && moduleIndex.has(moduleQuery) && !fileQuery) {
-    const module = moduleIndex.get(moduleQuery)
+  if (moduleQuery && moduleIndex.value.has(moduleQuery) && !fileQuery) {
+    const module = moduleIndex.value.get(moduleQuery)
     const firstFile = module.files[0]
     selectedModuleId.value = module.id
     selectedFileId.value = firstFile?.id ?? ''
@@ -112,7 +136,7 @@ function applyRouteState() {
 }
 
 function openModule(moduleId) {
-  const module = moduleIndex.get(moduleId)
+  const module = moduleIndex.value.get(moduleId)
   if (!module) {
     return
   }
@@ -124,7 +148,7 @@ function openModule(moduleId) {
 }
 
 function openFile(fileId) {
-  const file = fileIndex.get(fileId)
+  const file = fileIndex.value.get(fileId)
   if (!file) {
     return
   }
@@ -300,7 +324,7 @@ function scrollToHeading(headingId) {
 }
 
 watch(
-  () => [route.query.module, route.query.file, modules.length],
+  () => [route.query.module, route.query.file, modules.value.length],
   () => {
     applyRouteState()
   },
@@ -318,7 +342,7 @@ watch(
       return
     }
 
-    const rendered = renderKnowledgeFile(file, fileIndex, assetIndex)
+    const rendered = renderKnowledgeFile(file, fileIndex.value, assetIndex.value)
     renderedHtml.value = rendered.html
     tocItems.value = rendered.toc
     activeHeadingId.value = rendered.toc[0]?.id ?? ''
@@ -332,7 +356,8 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
+  await refreshKnowledgeData()
   applyRouteState()
   updateReadingProgress()
 })
