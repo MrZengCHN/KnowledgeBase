@@ -1,4 +1,18 @@
 import MarkdownIt from 'markdown-it'
+import markdownItFootnote from 'markdown-it-footnote'
+import markdownItTaskLists from 'markdown-it-task-lists'
+import hljs from 'highlight.js/lib/core'
+import bash from 'highlight.js/lib/languages/bash'
+import css from 'highlight.js/lib/languages/css'
+import java from 'highlight.js/lib/languages/java'
+import javascript from 'highlight.js/lib/languages/javascript'
+import json from 'highlight.js/lib/languages/json'
+import markdown from 'highlight.js/lib/languages/markdown'
+import python from 'highlight.js/lib/languages/python'
+import sql from 'highlight.js/lib/languages/sql'
+import typescript from 'highlight.js/lib/languages/typescript'
+import xml from 'highlight.js/lib/languages/xml'
+import yaml from 'highlight.js/lib/languages/yaml'
 
 const markdownSources = import.meta.glob('@knowledge/**/*.{md,markdown}', {
   eager: true,
@@ -19,6 +33,66 @@ const md = new MarkdownIt({
   linkify: true,
   breaks: false
 })
+  .use(markdownItTaskLists, {
+    enabled: true,
+    label: true,
+    labelAfter: true
+  })
+  .use(markdownItFootnote)
+
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('sh', bash)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('java', java)
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('markdown', markdown)
+hljs.registerLanguage('md', markdown)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('py', python)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('html', xml)
+hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('yml', yaml)
+
+function normalizeFenceLanguage(info) {
+  const firstToken = String(info || '').trim().split(/\s+/)[0] || ''
+  return {
+    normalized: firstToken.toLowerCase(),
+    label: firstToken || 'text'
+  }
+}
+
+function highlightFenceContent(content, language) {
+  if (language && hljs.getLanguage(language)) {
+    return hljs.highlight(content, { language, ignoreIllegals: true }).value
+  }
+  return md.utils.escapeHtml(content)
+}
+
+function renderFence(tokens, idx) {
+  const token = tokens[idx]
+  const { normalized, label } = normalizeFenceLanguage(token.info)
+  const safeLabel = md.utils.escapeHtml(label.toUpperCase())
+  const safeLanguageClass = normalized ? ` language-${md.utils.escapeHtml(normalized)}` : ''
+  const highlighted = highlightFenceContent(token.content, normalized)
+
+  return (
+    `<div class="kb-code-block">` +
+    `<div class="kb-code-toolbar">` +
+    `<span class="kb-code-lang">${safeLabel}</span>` +
+    `<button class="kb-code-copy-btn" type="button">复制</button>` +
+    `</div>` +
+    `<pre><code class="hljs${safeLanguageClass}">${highlighted}</code></pre>` +
+    `</div>`
+  )
+}
+
+md.renderer.rules.fence = renderFence
 
 function normalizePath(input) {
   return input.replace(/\\/g, '/').replace(/^\/+/, '')
