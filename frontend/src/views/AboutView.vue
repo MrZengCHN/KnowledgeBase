@@ -31,7 +31,7 @@ const skills = {
       <!-- Left Column: Profile Card (Sticky) -->
       <div class="md:col-span-6 lg:col-span-4 relative">
         <div class="sticky top-24 space-y-6">
-          <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up">
+          <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300">
             <figure class="px-10 pt-10">
               <div class="avatar my-1">
                 <div class="w-24 h-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 overflow-hidden">
@@ -95,7 +95,7 @@ const skills = {
       <div class="md:col-span-6 lg:col-span-8 space-y-6">
         
         <!-- Frontend Card -->
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up" style="animation-delay: 0.1s;">
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300">
           <div class="card-body">
             <h2 class="card-title flex items-center gap-3 text-primary mb-4">
               <div class="p-2 bg-primary/10 rounded-lg">
@@ -116,7 +116,7 @@ const skills = {
         </div>
 
         <!-- Backend Card -->
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up" style="animation-delay: 0.2s;">
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300">
           <div class="card-body">
             <h2 class="card-title flex items-center gap-3 text-secondary mb-4">
               <div class="p-2 bg-secondary/10 rounded-lg">
@@ -137,7 +137,7 @@ const skills = {
         </div>
 
         <!-- DevOps Card -->
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up" style="animation-delay: 0.3s;">
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300">
           <div class="card-body">
             <h2 class="card-title flex items-center gap-3 text-accent mb-4">
               <div class="p-2 bg-accent/10 rounded-lg">
@@ -161,20 +161,3 @@ const skills = {
     </div>
   </div>
 </template>
-
-<style scoped>
-.animate-fade-in-up {
-  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

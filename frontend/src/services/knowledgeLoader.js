@@ -166,6 +166,12 @@ function ensureExternalLinkAttrs(token) {
   token.attrSet('rel', 'noopener noreferrer')
 }
 
+function ensureImageAttrs(token) {
+  token.attrSet('referrerpolicy', 'no-referrer')
+  token.attrSet('loading', 'lazy')
+  token.attrSet('decoding', 'async')
+}
+
 function createCanonicalQuery(moduleId, fileId) {
   return {
     module: moduleId,
@@ -225,7 +231,13 @@ function rewriteInlineLinks(tokens, file, fileIndex, assetIndex) {
 
       if (child.type === 'image') {
         const src = child.attrGet('src')
-        if (!src || isExternalOrAnchorLink(src)) {
+        if (!src) {
+          continue
+        }
+
+        ensureImageAttrs(child)
+
+        if (isExternalOrAnchorLink(src)) {
           continue
         }
 
