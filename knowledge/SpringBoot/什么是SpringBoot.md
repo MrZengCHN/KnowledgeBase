@@ -12,11 +12,11 @@ Spring Boot，说白了就是 Spring 的**脚手架**或者说是 Spring 的**�
 
 所以，**Spring Boot 的本质就是：Spring + 自动化配置**，目的是让我们只关注业务代码，而不是把时间浪费在配置上。
 
-![spring.drawio.png](./assets/%E4%BB%80%E4%B9%88%E6%98%AFSpringBoot/mLfhtykL_spring.drawio_mianshiya.webp)
 
 
+![SpringVSSpringBoot](./assets/%E4%BB%80%E4%B9%88%E6%98%AFSpringBoot/SpringVSSpringBoot.svg)
 
-
+![Spring VS SpringBoot开发模式对比](./assets/%E4%BB%80%E4%B9%88%E6%98%AFSpringBoot/Spring%20VS%20SpringBoot%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F%E5%AF%B9%E6%AF%94.svg)
 
 # 扩展
 
@@ -48,3 +48,4 @@ public class Application { ... }
 
 
 ![image-20260227102204144](./assets/%E4%BB%80%E4%B9%88%E6%98%AFSpringBoot/image-20260227102204144.png)
+
