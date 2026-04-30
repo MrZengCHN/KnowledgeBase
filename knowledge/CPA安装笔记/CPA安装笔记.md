@@ -61,7 +61,7 @@ systemctl --user status cliproxyapi.service
 ```
 # Ubuntu / Debian
 sudo apt update
-sudo apt install certbot python3-certbot-nginx -Y  # Nginx 示例
+sudo apt install certbot python3-certbot-nginx  # Nginx 示例
 # 或者 python3-certbot-apache  # Apache 示例
 ```
 
@@ -69,7 +69,7 @@ sudo apt install certbot python3-certbot-nginx -Y  # Nginx 示例
 
 ```
 # Nginx
-sudo certbot --nginx -d yourdomain.com -d yourdomain.com
+sudo certbot --nginx -d yourdomain.com
 ```
 
 ![image-20260402190210513](./assets/CPA%E5%AE%89%E8%A3%85%E7%AC%94%E8%AE%B0/image-20260402190210513.png)
